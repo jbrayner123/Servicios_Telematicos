@@ -1,0 +1,133 @@
+networks:
+  red-balanceo:
+    name: red-balanceo
+    driver: bridge
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: tiendatech
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - red-balanceo
+    restart: unless-stopped
+
+  backend1:
+    build: ./backend
+    container_name: backend1
+    environment:
+      - BACKEND_ID=backend-1
+      - DB_HOST=postgres
+      - DB_NAME=tiendatech
+      - DB_USER=admin
+      - DB_PASS=admin123
+    networks:
+      - red-balanceo
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  backend2:
+    build: ./backend
+    container_name: backend2
+    environment:
+      - BACKEND_ID=backend-2
+      - DB_HOST=postgres
+      - DB_NAME=tiendatech
+      - DB_USER=admin
+      - DB_PASS=admin123
+    networks:
+      - red-balanceo
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  backend3:
+    build: ./backend
+    container_name: backend3
+    environment:
+      - BACKEND_ID=backend-3
+      - DB_HOST=postgres
+      - DB_NAME=tiendatech
+      - DB_USER=admin
+      - DB_PASS=admin123
+    networks:
+      - red-balanceo
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-balanceador
+    ports:
+      - "${PUBLIC_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - red-balanceo
+    depends_on:
+      - backend1
+      - backend2
+      - backend3
+    restart: unless-stopped
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    command:
+      - --nginx.scrape-uri=http://nginx-balanceador:80/nginx_status
+    networks:
+      - red-balanceo
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - red-balanceo
+    depends_on:
+      - nginx-exporter
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - red-balanceo
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  artillery:
+    image: artilleryio/artillery:latest
+    container_name: artillery
+    volumes:
+      - ./artillery:/scripts
+    networks:
+      - red-balanceo
+    profiles:
+      - test
+
+volumes:
+  postgres_data:

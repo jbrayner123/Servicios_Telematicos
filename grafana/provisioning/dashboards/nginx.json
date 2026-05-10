@@ -1,0 +1,64 @@
+{
+  "title": "NGINX Balanceador de Carga",
+  "uid": "nginx-balanceo",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requests por segundo",
+      "type": "timeseries",
+      "gridPos": {"x":0,"y":0,"w":12,"h":8},
+      "targets": [{
+        "expr": "rate(nginx_http_requests_total[30s])",
+        "legendFormat": "req/seg"
+      }],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 2,
+      "title": "Conexiones activas",
+      "type": "timeseries",
+      "gridPos": {"x":12,"y":0,"w":12,"h":8},
+      "targets": [{
+        "expr": "nginx_connections_active",
+        "legendFormat": "activas"
+      }],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 3,
+      "title": "Conexiones en espera",
+      "type": "timeseries",
+      "gridPos": {"x":0,"y":8,"w":12,"h":8},
+      "targets": [{
+        "expr": "nginx_connections_waiting",
+        "legendFormat": "esperando"
+      }],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 4,
+      "title": "Estado NGINX",
+      "type": "stat",
+      "gridPos": {"x":12,"y":8,"w":6,"h":8},
+      "targets": [{
+        "expr": "nginx_up",
+        "legendFormat": "NGINX"
+      }],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 5,
+      "title": "Total requests",
+      "type": "stat",
+      "gridPos": {"x":18,"y":8,"w":6,"h":8},
+      "targets": [{
+        "expr": "nginx_http_requests_total",
+        "legendFormat": "total"
+      }],
+      "datasource": "Prometheus"
+    }
+  ],
+  "refresh": "5s",
+  "time": {"from":"now-5m","to":"now"},
+  "schemaVersion": 38
+}

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TiendaTech — Balanceador NGINX</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; }
+  header { background: #1a1d2e; border-bottom: 1px solid #2d3748; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 1.4rem; color: #63b3ed; }
+  #backend-badge { background: #2d3748; padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.85rem; border: 1px solid #4a5568; }
+  #backend-badge span { color: #68d391; font-weight: bold; }
+  nav { background: #1a1d2e; padding: 0 2rem; display: flex; gap: 0.5rem; border-bottom: 1px solid #2d3748; }
+  nav button { background: none; border: none; color: #a0aec0; padding: 1rem 1.2rem; cursor: pointer; font-size: 0.9rem; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  nav button.active, nav button:hover { color: #63b3ed; border-bottom-color: #63b3ed; }
+  main { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .stat-card { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 12px; padding: 1.5rem; text-align: center; }
+  .stat-card .value { font-size: 2.2rem; font-weight: bold; color: #63b3ed; }
+  .stat-card .label { font-size: 0.85rem; color: #718096; margin-top: 0.3rem; }
+  .card { background: #1a1d2e; border: 1px solid #2d3748; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .card h2 { font-size: 1.1rem; color: #e2e8f0; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid #2d3748; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th { text-align: left; padding: 0.75rem 1rem; color: #718096; font-weight: 500; border-bottom: 1px solid #2d3748; font-size: 0.8rem; text-transform: uppercase; }
+  td { padding: 0.75rem 1rem; border-bottom: 1px solid #1e2433; }
+  tr:hover td { background: #1e2433; }
+  .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+  .badge-green { background: #1a3a2a; color: #68d391; }
+  .badge-blue { background: #1a2a3a; color: #63b3ed; }
+  .badge-purple { background: #2a1a3a; color: #b794f4; }
+  .badge-orange { background: #3a2a1a; color: #f6ad55; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+  .form-group label { font-size: 0.8rem; color: #718096; text-transform: uppercase; }
+  .form-group input, .form-group select, .form-group textarea { background: #0f1117; border: 1px solid #2d3748; border-radius: 8px; padding: 0.6rem 0.8rem; color: #e2e8f0; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+  .form-group input:focus, .form-group select:focus { border-color: #63b3ed; }
+  .btn { padding: 0.6rem 1.4rem; border: none; border-radius: 8px; cursor: pointer; font-size: 0.9rem; font-weight: 500; transition: all 0.2s; }
+  .btn-primary { background: #3182ce; color: white; }
+  .btn-primary:hover { background: #2b6cb0; }
+  .btn-danger { background: #c53030; color: white; }
+  .btn-danger:hover { background: #9b2c2c; }
+  .btn-sm { padding: 0.3rem 0.8rem; font-size: 0.8rem; }
+  .top-list { list-style: none; }
+  .top-list li { display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid #2d3748; font-size: 0.9rem; }
+  .top-list li:last-child { border: none; }
+  .alert { padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
+  .alert-success { background: #1a3a2a; color: #68d391; border: 1px solid #2d6a4f; }
+  .alert-error { background: #3a1a1a; color: #fc8181; border: 1px solid #6a2d2d; }
+  #msg { min-height: 40px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ TiendaTech</h1>
+  <div id="backend-badge" style="position:fixed;bottom:1rem;right:1rem;padding:0.3rem 0.8rem;border-radius:20px;font-size:0.75rem;z-index:999;border:1px solid #2d3748;background:#1a1d2e;transition:all 0.4s">⬡ <span id="backend-name">cargando...</span></div>
+</header>
+
+<nav>
+  <button class="active" onclick="showSection('dashboard')">Dashboard</button>
+  <button onclick="showSection('productos')">Productos</button>
+  <button onclick="showSection('nuevo-producto')">Agregar Producto</button>
+  <button onclick="showSection('pedidos')">Pedidos</button>
+</nav>
+
+<main>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="section active">
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="value">...</div><div class="label">Productos</div></div>
+      <div class="stat-card"><div class="value">...</div><div class="label">Stock total</div></div>
+      <div class="stat-card"><div class="value">...</div><div class="label">Pedidos</div></div>
+      <div class="stat-card"><div class="value">...</div><div class="label">Ingresos</div></div>
+    </div>
+    <div class="card">
+      <h2>Top 5 productos más vendidos</h2>
+      <ul class="top-list" id="top-list"><li>Cargando...</li></ul>
+    </div>
+  </div>
+
+  <!-- PRODUCTOS -->
+  <div id="productos" class="section">
+    <div class="card">
+      <h2>Inventario de productos</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Acciones</th></tr></thead>
+        <tbody id="tabla-productos"><tr><td colspan="6">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- NUEVO PRODUCTO -->
+  <div id="nuevo-producto" class="section">
+    <div class="card">
+      <h2>Agregar nuevo producto</h2>
+      <div id="msg"></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombre</label>
+          <input type="text" id="p-nombre" placeholder="Nombre del producto">
+        </div>
+        <div class="form-group">
+          <label>Categoría</label>
+          <select id="p-categoria"></select>
+        </div>
+        <div class="form-group">
+          <label>Precio (USD)</label>
+          <input type="number" id="p-precio" placeholder="0.00" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Stock</label>
+          <input type="number" id="p-stock" placeholder="0">
+        </div>
+        <div class="form-group" style="grid-column: span 2">
+          <label>Descripción</label>
+          <textarea id="p-desc" rows="3" placeholder="Descripción del producto"></textarea>
+        </div>
+      </div>
+      <br>
+      <button class="btn btn-primary" onclick="crearProducto()">Guardar producto</button>
+    </div>
+  </div>
+
+  <!-- PEDIDOS -->
+  <div id="pedidos" class="section">
+    <div class="card">
+      <h2>Últimos pedidos</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Backend</th><th>Fecha</th></tr></thead>
+        <tbody id="tabla-pedidos"><tr><td colspan="6">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const badges = ['badge-blue','badge-green','badge-purple','badge-orange']
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'))
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  event.target.classList.add('active')
+  if (id === 'productos') loadProductos()
+  if (id === 'pedidos') loadPedidos()
+  if (id === 'nuevo-producto') loadCategorias()
+  if (id === 'dashboard') loadStats()
+}
+
+async function api(url, opts) {
+  const r = await fetch(url, opts)
+  return r.json()
+}
+
+async function loadBackend() {
+  const d = await api('/api/info')
+  const badge = document.getElementById('backend-badge')
+  const name = document.getElementById('backend-name')
+  name.textContent = d.backend
+  const colors = {
+    'backend-1': {bg:'#1a3a2a', border:'#2d6a4f', text:'#68d391'},
+    'backend-2': {bg:'#1a2a3a', border:'#2d4a6a', text:'#63b3ed'},
+    'backend-3': {bg:'#3a1a1a', border:'#6a2d2d', text:'#fc8181'}
+  }
+  const c = colors[d.backend] || {bg:'#1a1d2e', border:'#2d3748', text:'#a0aec0'}
+  badge.style.background = c.bg
+  badge.style.borderColor = c.border
+  name.style.color = c.text
+}
+
+async function loadStats() {
+  const d = await api('/api/stats')
+  const g = document.getElementById('stats-grid')
+  g.innerHTML = `
+    <div class="stat-card"><div class="value">${d.productos.total}</div><div class="label">Productos</div></div>
+    <div class="stat-card"><div class="value">${d.productos.stock_total}</div><div class="label">Unidades en stock</div></div>
+    <div class="stat-card"><div class="value">${d.pedidos.total}</div><div class="label">Pedidos completados</div></div>
+    <div class="stat-card"><div class="value">$${parseFloat(d.pedidos.ingresos||0).toLocaleString()}</div><div class="label">Ingresos totales</div></div>
+  `
+  const list = document.getElementById('top-list')
+  if (d.top_productos.length === 0) { list.innerHTML = '<li>Sin ventas aún</li>'; return }
+  list.innerHTML = d.top_productos.map((p,i) =>
+    `<li><span>${i+1}. ${p.nombre}</span><span class="badge badge-green">${p.vendidos} vendidos</span></li>`
+  ).join('')
+}
+
+async function loadProductos() {
+  const d = await api('/api/productos')
+  const tbody = document.getElementById('tabla-productos')
+  tbody.innerHTML = d.data.map(p => `
+    <tr>
+      <td>${p.id}</td>
+      <td>${p.nombre}</td>
+      <td><span class="badge badge-blue">${p.categoria}</span></td>
+      <td>$${parseFloat(p.precio).toFixed(2)}</td>
+      <td><span class="badge ${p.stock > 10 ? 'badge-green' : 'badge-orange'}">${p.stock}</span></td>
+      <td><button class="btn btn-danger btn-sm" onclick="eliminarProducto(${p.id})">Eliminar</button></td>
+    </tr>
+  `).join('')
+}
+
+async function loadCategorias() {
+  const cats = await api('/api/categorias')
+  const sel = document.getElementById('p-categoria')
+  sel.innerHTML = cats.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('')
+}
+
+async function crearProducto() {
+  const body = {
+    nombre: document.getElementById('p-nombre').value,
+    categoria_id: document.getElementById('p-categoria').value,
+    precio: document.getElementById('p-precio').value,
+    stock: document.getElementById('p-stock').value,
+    descripcion: document.getElementById('p-desc').value
+  }
+  const msg = document.getElementById('msg')
+  try {
+    await api('/api/productos', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    msg.innerHTML = '<div class="alert alert-success">Producto creado correctamente</div>'
+    document.getElementById('p-nombre').value = ''
+    document.getElementById('p-precio').value = ''
+    document.getElementById('p-stock').value = ''
+    document.getElementById('p-desc').value = ''
+    setTimeout(() => msg.innerHTML = '', 3000)
+  } catch(e) {
+    msg.innerHTML = '<div class="alert alert-error">Error al crear producto</div>'
+  }
+}
+
+async function eliminarProducto(id) {
+  if (!confirm('¿Eliminar este producto?')) return
+  await api('/api/productos/' + id, { method: 'DELETE' })
+  loadProductos()
+}
+
+async function loadPedidos() {
+  const pedidos = await api('/api/pedidos')
+  const tbody = document.getElementById('tabla-pedidos')
+  const colores = {'backend-1':'badge-blue','backend-2':'badge-green','backend-3':'badge-purple'}
+  tbody.innerHTML = pedidos.map(p => `
+    <tr>
+      <td>#${p.id}</td>
+      <td>${p.cliente}</td>
+      <td>$${parseFloat(p.total).toFixed(2)}</td>
+      <td><span class="badge badge-green">${p.estado}</span></td>
+      <td><span class="badge ${colores[p.backend_atendido]||'badge-orange'}">${p.backend_atendido}</span></td>
+      <td>${new Date(p.created_at).toLocaleDateString()}</td>
+    </tr>
+  `).join('')
+}
+
+loadBackend()
+loadStats()
+setInterval(loadBackend, 3000)
+</script>
+</body>
+</html>

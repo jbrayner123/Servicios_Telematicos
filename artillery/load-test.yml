@@ -1,0 +1,21 @@
+config:
+  target: "http://nginx-balanceador:80"
+  phases:
+    - duration: 20
+      arrivalRate: 5
+      name: "Calentamiento"
+    - duration: 60
+      arrivalRate: 50
+      rampTo: 1000
+      name: "Rampa de carga"
+    - duration: 30
+      arrivalRate: 1000
+      name: "Carga maxima"
+
+scenarios:
+  - name: "Peticiones al balanceador"
+    flow:
+      - get:
+          url: "/"
+      - get:
+          url: "/health"
