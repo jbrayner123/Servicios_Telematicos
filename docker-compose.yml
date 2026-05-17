@@ -64,6 +64,13 @@ services:
       - postgres
     restart: unless-stopped
 
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    networks:
+      - red-balanceo
+    restart: unless-stopped
+
   nginx:
     image: nginx:alpine
     container_name: nginx-balanceador
@@ -77,6 +84,7 @@ services:
       - backend1
       - backend2
       - backend3
+      - frontend
     restart: unless-stopped
 
   nginx-exporter:

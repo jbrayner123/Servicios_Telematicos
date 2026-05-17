@@ -16,6 +16,8 @@ scenarios:
   - name: "Peticiones al balanceador"
     flow:
       - get:
-          url: "/"
+          url: "/api/info"
       - get:
-          url: "/health"
+          url: "/api/productos"
+      - get:
+          url: "/api/stats"
