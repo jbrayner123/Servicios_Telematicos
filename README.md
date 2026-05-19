@@ -15,6 +15,10 @@ Se implementaron y compararon 3 algoritmos de balanceo:
 
 ---
 
+## Video Demo
+
+Link: https://drive.google.com/file/d/1mnjxl9tA0cvEy9GF0BCwbeLYZrfdDqXc/view?usp=sharing
+
 ## Arquitectura
 
 ```
